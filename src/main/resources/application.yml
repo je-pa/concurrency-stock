@@ -9,6 +9,7 @@ spring:
     username: root
     password: reserve
     hikari:
+      # 같은 데이터 소스를 사용할 거기 때문에 커넥션 풀 사이즈를 변경해 주도록 설정
       maximum-pool-size: 40
 logging:
   level:
