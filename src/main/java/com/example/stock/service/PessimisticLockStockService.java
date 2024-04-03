@@ -3,16 +3,14 @@ package com.example.stock.service;
 import com.example.stock.domain.Stock;
 import com.example.stock.repository.StockRepository;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class PessimisticLockStockService {
 
-  private StockRepository stockRepository;
-
-  public PessimisticLockStockService(StockRepository stockRepository) {
-    this.stockRepository = stockRepository;
-  }
+  private final StockRepository stockRepository;
 
   @Transactional
   public Long decrease(Long id, Long quantity) {
