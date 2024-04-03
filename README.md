@@ -45,6 +45,7 @@
     - 장점: 충돌이 빈번하게 일어난다면 OptimisticLock보다 성능이 좋을 수 있다.
     - 단점: 별도의 락을 잡기 때문에 성능 감소가 있을 수 있다.
 2. OptimisticLock
+    - 관련코드: [OptimisticLockStockFacade](src/main/java/com/example/stock/facade/service/OptimisticLockStockFacade.java)
     - 실제로 락을 이용하지 않고 버전을 이용함으로써 정합성을 맞추는 방법
       - 먼저 데이터를 읽은 후 업데이트를 수행할 때 현재 내가 읽은 버전이 맞는지 확인하며 업데이트하는데, 
       
@@ -63,12 +64,20 @@
     - 장점: 별도의 락을 잡지 않으므로 페시미스팅 락보다 성능상 이점
     - 단점: 업데이트가 실패했을 때 재시도 로직을 개발자가 직접 작성해 주어야 하는 번거로움
 > 충돌이 빈번하게 일어난다면 혹은 충돌이 빈번하게 일어날 것이라고 예상된다면 Pessimistic Lock
+> 
 > 빈번하게 일어나지 않을 것이라고 예상된다면 OptimisticLock
 3. Named Lock
-    - 이름을 가진 metadata locking
-      - 이름을 가진 락을 획득한 후 해제할 때까지 다른 세션은 이 락을 획득할 수 없도록 한다.
+    - 관련 코드: [NamedLockStockFacade](src/main/java/com/example/stock/facade/service/NamedLockStockFacade.java)
+        > 실제로 사용하실 때는 데이터 소스를 분리해서 사용
+        >
+        > 같은 데이터 소스를 사용하면 커넥션 풀이 부족해지는 현상으로 인해서 다른 서비스에도 영향을 끼친다.
+      - 이름을 가진 metadata locking
+      - 이름을 가진 락을 획득한 후 해제할 때까지 다른 `session`은 이 락을 획득할 수 없도록 한다.
+          - 별도의 공간에 락을 건다.
       - Pessimistic Lock은 row나 table단위로 lock을 걸지만, named lock은 메타데이터에 락킹을 하는 방법이다.
-      > 주의
-      > 
-      > 트랜잭션이 종료될 때 락이 자동으로 해제되지 않기 때문에 별도의 명령으로   
-      > 해제를 수행해주거나 선점 시간이 끝나야 해제가 된다.
+      - MySQL에서는 get-lock 명령어를 통해 named-lock을 획득할 수 있고 release-lock 명령어를 통해 lock을 해제할 수 있다.
+        
+    - Named Lock은 주로 분산락을 구현할 때 사용
+    - 장점: Pessimistic Lock은 타임아웃을 구현하기 힘들지만 Named Lock은 타임아웃을 손쉽게 구현
+    - 단점: 트랜잭션이 종료될 때 락이 자동으로 해제되지 않기 때문에 별도의 명령으로 해제를 수행해주거나 선점 시간이 끝나야 해제가 된다.
+    > 트랜직션 종료 시에 락 해제, 세션 관리를 잘 해줘야 되기 때문에 주의해서 사용해야 하고 실제 구현 방법이 복잡할 수 있다.
