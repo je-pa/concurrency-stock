@@ -39,4 +39,18 @@ public class StockService {
 
     stockRepository.saveAndFlush(stock);
   }
+
+  /**
+   * setction2
+   * java synchronized 문제점
+   * Java의 Synchronized는 하나의 프로세스 안에서만 보장
+   *
+   * 서버가 1대일 때는 데이터의 접근을 서버가 1대만 해서 괜찮겠지만,
+   * 서버가 2대 혹은 그 이상일 경우는 데이터의 접근을 여러 대에서 할 수 있게 된다.
+   * 싱크로나이즈드는 각 프로세스 안에서만 보장이 되기 때문에 결국 여러 스레드에서 동시에
+   * 데이터에 접근을 할 수 있게 되면서 레이스 컨디션이 발생하게 된다.
+   *
+   * 실제 운영 중인 서비스는 대부분 2대 이상의 서버를 사용하기 때문에
+   * Synchronized는 거의 사용하지 않는다.
+   */
 }
