@@ -1,6 +1,9 @@
 # 동시성 이슈 해결 알아보기
 
+데이터 정합성을 맞추는 방법에 대해 알아보자.
+
 ## 1. synchronized
+- 관련 코드: [StockService](src/main/java/com/example/stock/service/StockService.java)
 - synchronized를 사용하면 하나의 프로세스 안에서 스레드 동시 접근을 막는다.
 
 ### synchronized를 사용할 때 주의점이 있다.
@@ -28,3 +31,39 @@
 
 > 실제 운영 중인 서비스는 대부분 2대 이상의 서버를 사용하기 때문에
 > Synchronized는 거의 사용하지 않는다.
+
+## 2. Mysql 활용한 방법
+
+1. Pessimistic Lock
+    - 관련 코드: [PessimisticLockStockService](src/main/java/com/example/stock/service/PessimisticLockStockService.java)
+    - 데이터에 Lock을 걸어 정합성을 맞추는 방법
+      - `exclusive lock`을 걸게되면 다른 트랜잭션에서는 락이 해제되기 전에 데이터를 가져갈 수 없다.
+        > 주의: 데드락
+        > 
+        > 서버가 여러 대가 있을 때 서버 1이 락을 걸고 데이터를 가져가게 되면 
+        > 나머지 서버는 서버 1이 락을 해제하기 전까지 데이터를 가져갈 수 없다.
+    - 장점: 충돌이 빈번하게 일어난다면 OptimisticLock보다 성능이 좋을 수 있다.
+    - 단점: 별도의 락을 잡기 때문에 성능 감소가 있을 수 있다.
+2. OptimisticLock
+    - 실제로 락을 이용하지 않고 버전을 이용함으로써 정합성을 맞추는 방법
+      - 먼저 데이터를 읽은 후 업데이트를 수행할 때 현재 내가 읽은 버전이 맞는지 확인하며 업데이트하는데, 
+      
+        만약 읽은 버전에서 수정사항이 생겼을 경우 어플리케이션에서 다시 읽은 후 작업 수행한다.
+      > 1. 서버1이 데이터베이스에서 버전 1인 데이터를 읽어온다.
+      > 2. 읽고 난 후 서버1이 업데이트 쿼리를 날린다.
+      >   - 이때 update에 version +1 을 해주고 where에는 조건에 버전1 을 명시해주면서 업데이트 한다. 
+      >     ```mysql
+      >         update set version = version+1, quantity = 2
+      >         from table 
+      >         where version =1
+      >     ```
+      > 3. 서버2가 동일한 업데이트를 한다. 이때 version이 1이 아니기 때문에 수행이 되지 않는다.
+      > 4. 업데이트가 실패하게 되면서 실제 어플리케이션에서 다시 읽은 후에 작업을 수행해야 하는 로직을 한다.
+3. Named Lock
+    - 이름을 가진 metadata locking
+      - 이름을 가진 락을 획득한 후 해제할 때까지 다른 세션은 이 락을 획득할 수 없도록 한다.
+      - Pessimistic Lock은 row나 table단위로 lock을 걸지만, named lock은 메타데이터에 락킹을 하는 방법이다.
+      > 주의
+      > 
+      > 트랜잭션이 종료될 때 락이 자동으로 해제되지 않기 때문에 별도의 명령으로   
+      > 해제를 수행해주거나 선점 시간이 끝나야 해제가 된다.
