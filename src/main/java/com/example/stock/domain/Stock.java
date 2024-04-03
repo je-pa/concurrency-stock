@@ -18,6 +18,7 @@ public class Stock {
   @Getter
   private Long quantity;
 
+  // optimistic lock을 위한 version 추가
   @Version
   private Long version;
 
