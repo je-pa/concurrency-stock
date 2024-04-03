@@ -1,6 +1,6 @@
-package com.zb.tablereservation.stock.repository;
+package com.example.stock.repository;
 
-import com.zb.tablereservation.stock.domain.Stock;
+import com.example.stock.domain.Stock;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

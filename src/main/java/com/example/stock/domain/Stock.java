@@ -1,4 +1,4 @@
-package com.zb.tablereservation.stock.domain;
+package com.example.stock.domain;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -36,5 +36,5 @@ public class Stock {
   public Stock(Long productId, Long quantity) {
     this.productId = productId;
     this.quantity = quantity;
-  }''
+  }
 }
