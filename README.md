@@ -81,3 +81,76 @@
     - 장점: Pessimistic Lock은 타임아웃을 구현하기 힘들지만 Named Lock은 타임아웃을 손쉽게 구현
     - 단점: 트랜잭션이 종료될 때 락이 자동으로 해제되지 않기 때문에 별도의 명령으로 해제를 수행해주거나 선점 시간이 끝나야 해제가 된다.
     > 트랜직션 종료 시에 락 해제, 세션 관리를 잘 해줘야 되기 때문에 주의해서 사용해야 하고 실제 구현 방법이 복잡할 수 있다.
+
+## 3. Redis 활용하기
+redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적인 라이브러리 두 가지
+
+(분산락을 구현할 때 사용하는 대표적인 라이브러리 두 가지)
+
+- MySQL의 Named Lock과 거의 비슷하나, redis를 이용하는 점과 Session 관리에 신경을 안 써도 된다는 차이가 있다.
+1. Lettuce
+    - setnx 명령어를 활용해 분산락 구현
+      > setnx(set if not exist) 명령어
+      > 
+      > 키와 밸류를 set할 때 기존의 값이 없을 때만 set하는 명령어
+    - spin lock 방식: 락을 획득하려는 스레드가 락을 사용할 수 있는지 반복적으로 확인하면서 락 획득을 시도하는 방식
+      - setnx를 활용하는 방식
+      - retry로직을 개발자가 작성해주어야한다.
+      > 방식
+      > 
+      > 1. 스레드 1이 키가 1인 데이터를 레디스에 셋하려고 한다.
+      > 2. 레디스에 키가 1인 데이터가 없기 때문에 정상적으로 셋하게 되고 Thread1의 성공 리턴
+      > 3. Thread2가 똑같이 키가 1인 데이터를 셋하려 할 때 레디스에 이미 키가 있어 실패 리턴
+      > 4. Thread2가 락 획득에 실패를 하였기 때문에 일정 시간 이후에 락 획득을 재시도
+      >    - 락 획득할 때까지 재시도를 하는 로직을 작성해 줘야 한다.
+    - 장점: 구현이 간단
+    - 단점: 스피드락 방식이므로 레디스에 부하가 있을 수 있다.
+      - sleep으로 락 획득 재시도에 텀을 준다.
+2. Redisson
+    - pub-sub기반으로 Lock 구현
+      > pub-sub기반: 채널을 하나를 만들고 락을 점유 중인 쓰레드가 
+      > 락 획득하려고 대기중인 스레드에게 해제를 알려주면 안내를 받은 스레드가 락 획득 시도를 하는 방식
+    - retry로직을 개발자가 작성하지 않아도 된다.
+      > 1. 채널이 하나가 있고 스레드1이 먼저 락을 점유
+      > 2. 스레드2가 이후에 시도를 하려고 한다
+      > 3. Thread1이 락을 해제할 때 끝났다는 메시지를 채널로 보낸다.
+      > 4. 채널은 Thread2에게 락 획득 시도해라는 걸 알려준다.
+      > 5. Thread2는 락 획득을 시도한다.
+
+# docker로 redis 사용
+### redis 설치 및 실행
+```shell
+$ docker pull redis
+$ docker run --name myredis -d -p 6379:6379 redis
+```
+### redis 존재하는 이미지 실행
+```shell
+$ docker start myredis
+```
+
+### redis cli 실행
+1. container id 확인
+```shell
+$ docker ps
+```
+2. redis cli 실행
+```shell
+$ docker exec -it {redis container id} redis-cli
+```
+
+### redis cli 에서 lock
+1. 키가 1인 데이터 setnx(key: 1, value: lock)
+```shell
+127.0.0.1:6379> setnx 1 lock
+(integer) 1
+127.0.0.1:6379> setnx 1 lock
+(integer) 0
+```
+- 1이 성공 0이 실패
+2. 키 1 삭제
+```shell
+127.0.0.1:6379> del 1
+(integer) 1
+127.0.0.1:6379> setnx 1 lock
+(integer) 1
+```
