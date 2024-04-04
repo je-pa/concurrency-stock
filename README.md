@@ -83,12 +83,17 @@
     > 트랜직션 종료 시에 락 해제, 세션 관리를 잘 해줘야 되기 때문에 주의해서 사용해야 하고 실제 구현 방법이 복잡할 수 있다.
 
 ## 3. Redis 활용하기
+- dependency
+```shell
+implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+```
 redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적인 라이브러리 두 가지
 
 (분산락을 구현할 때 사용하는 대표적인 라이브러리 두 가지)
 
 - MySQL의 Named Lock과 거의 비슷하나, redis를 이용하는 점과 Session 관리에 신경을 안 써도 된다는 차이가 있다.
 1. Lettuce
+    - 관련 코드: [LettuceLockStockFacade](src/main/java/com/example/stock/facade/service/LettuceLockStockFacade.java)
     - setnx 명령어를 활용해 분산락 구현
       > setnx(set if not exist) 명령어
       > 
@@ -103,10 +108,19 @@ redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적�
       > 3. Thread2가 똑같이 키가 1인 데이터를 셋하려 할 때 레디스에 이미 키가 있어 실패 리턴
       > 4. Thread2가 락 획득에 실패를 하였기 때문에 일정 시간 이후에 락 획득을 재시도
       >    - 락 획득할 때까지 재시도를 하는 로직을 작성해 줘야 한다.
-    - 장점: 구현이 간단
-    - 단점: 스피드락 방식이므로 레디스에 부하가 있을 수 있다.
-      - sleep으로 락 획득 재시도에 텀을 준다.
+    - 장점
+      - 구현이 간단
+      - 스프링 데이터 레디스를 사용하면 lettude는 기본 라이브러리다.
+    - 단점
+      - 스피드락 방식이므로 동시에 많은 스레드가 락 획득대기 상태라면 레디스에 부하가 있을 수 있다.
+        - sleep으로 락 획득 재시도에 텀을 준다.
 2. Redisson
+    - 관련 코드: [RedissonLockStockFacade](src/main/java/com/example/stock/facade/service/RedissonLockStockFacade.java) 
+    - dependency
+   ```shell
+      implementation 'org.redisson:redisson-spring-boot-starter:3.27.2'
+   ```
+      - 락 관련된 클래스들을 라이브러리에서 제공해서 레파지토리 작성 안해도 된다.
     - pub-sub기반으로 Lock 구현
       > pub-sub기반: 채널을 하나를 만들고 락을 점유 중인 쓰레드가 
       > 락 획득하려고 대기중인 스레드에게 해제를 알려주면 안내를 받은 스레드가 락 획득 시도를 하는 방식
@@ -116,7 +130,33 @@ redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적�
       > 3. Thread1이 락을 해제할 때 끝났다는 메시지를 채널로 보낸다.
       > 4. 채널은 Thread2에게 락 획득 시도해라는 걸 알려준다.
       > 5. Thread2는 락 획득을 시도한다.
+    - 장점
+      - lock 획득 재시도를 기본 제공 
+      - PubSub 기반의 구현이기 때문에 레디스의 부하를 줄여준다.
+    - 단점
+      - 구현이 조금 복잡
+      - 별도의 라이브러리를 사용해야한다.(스프링 데이터 레디스의 기본 라이브러리는 lettuce)
+      - 락을 라이브러리 차원에서 제공을 해주어서 라이브러리 사용법 공부가 필요하다.
 
+> 실무에서는 제시도가 필요하지 않은 락은 레튜스를 활용하여 구현하고
+> 
+> 제시도가 필요한 경우에는 레디슨을 활용하여 구현하는 방식을 혼용
+
+> MySQL과 Redis 장단점
+> - MySQL 
+>   - 장점
+>     - MySQL을 사용하고 있다면 별도의 비용 없이 사용
+>     - 성능이 Redis보다는 좋지 않지만 어느 정도의 트래픽까지는 문제없이 사용 가능
+> - 단점
+>   - Redis보다는 성능이 좋지 않다
+> - Redis
+>   - 장점
+>     - MySQL보다 성능이 좋기 때문에 더 많은 요청을 처리
+>   - 단점
+>     - 활용 중인 Redis가 없다면 별도의 구축 비용과 인프라 관리 비용이 추가 발생
+> > 실무에서는 비용적 여유가 없거나 MySQL로 처리가 가능할 정도의 트래픽이라면 MySQL을 활용하고 
+> >
+> > 비용적 여유가 있거나 MySQL로는 처리가 불가능할 정도의 트래픽이라면 Redis를 도입
 # docker로 redis 사용
 ### redis 설치 및 실행
 ```shell
@@ -138,6 +178,7 @@ $ docker ps
 $ docker exec -it {redis container id} redis-cli
 ```
 
+## Lettuce
 ### redis cli 에서 lock
 1. 키가 1인 데이터 setnx(key: 1, value: lock)
 ```shell
@@ -154,3 +195,22 @@ $ docker exec -it {redis container id} redis-cli
 127.0.0.1:6379> setnx 1 lock
 (integer) 1
 ```
+
+## Redisson
+터미널 2개 활용해서 pub-sub 간단 실습하기
+1. 한쪽에서 ch1을 구독
+```shell
+subscribe ch1
+```
+2. 다른 터미널에서 publish로 ch1에 hello 메시지 보내기
+```shell
+publish ch1 hello
+```
+3. ch1 구독한 채널에서 Hello라는 메시지 받음
+4.  레디스는 자신이 점유하고 있는 락을 해제할 때 채널에 메시지를 보내줌으로써 
+락을 획득해야 하는 스레드들에게 락 획득을 하라고 전달
+5. 락 획득을 해야 하는 스레드들은 메시지를 받았을 때 락 획득을 시도
+> 레튜스는 계속 락 획득을 시도하는 반면 
+> 
+> 레디스는 락 해제가 되었을 때 한 번 혹은 몇 번만 시도를 하기 때문에 레디스의 부하를 줄여준다.
+![img.png](img/img.png)
