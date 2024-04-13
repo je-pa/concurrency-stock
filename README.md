@@ -24,8 +24,8 @@
     - 서버가 1대일 때는 데이터의 접근을 서버가 1대만 해서 괜찮겠지만,
       
       서버가 2대 혹은 그 이상일 경우는 데이터의 접근을 여러 대에서 할 수 있게 된다.
-   
-      싱크로나이즈드는 각 프로세스 안에서만 보장이 되기 때문에 
+
+      Synchronized는 각 프로세스 안에서만 보장이 되기 때문에 
     
       결국 여러 스레드에서 동시에 데이터에 접근을 할 수 있게 되면서 레이스 컨디션이 발생하게 된다.
 
@@ -84,9 +84,9 @@
 
 ## 3. Redis 활용하기
 - dependency
-```shell
-implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-```
+   ```shell
+   implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+   ```
 redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적인 라이브러리 두 가지
 
 (분산락을 구현할 때 사용하는 대표적인 라이브러리 두 가지)
@@ -117,9 +117,9 @@ redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적�
 2. Redisson
     - 관련 코드: [RedissonLockStockFacade](src/main/java/com/example/stock/facade/service/RedissonLockStockFacade.java) 
     - dependency
-   ```shell
+      ```shell
       implementation 'org.redisson:redisson-spring-boot-starter:3.27.2'
-   ```
+      ```
       - 락 관련된 클래스들을 라이브러리에서 제공해서 레파지토리 작성 안해도 된다.
     - pub-sub기반으로 Lock 구현
       > pub-sub기반: 채널을 하나를 만들고 락을 점유 중인 쓰레드가 
@@ -142,75 +142,80 @@ redis를 활용하여 동시성 문제를 해결할 때 사용하는 대표적�
 > 
 > 제시도가 필요한 경우에는 레디슨을 활용하여 구현하는 방식을 혼용
 
-> MySQL과 Redis 장단점
-> - MySQL 
->   - 장점
->     - MySQL을 사용하고 있다면 별도의 비용 없이 사용
->     - 성능이 Redis보다는 좋지 않지만 어느 정도의 트래픽까지는 문제없이 사용 가능
-> - 단점
->   - Redis보다는 성능이 좋지 않다
-> - Redis
->   - 장점
->     - MySQL보다 성능이 좋기 때문에 더 많은 요청을 처리
->   - 단점
->     - 활용 중인 Redis가 없다면 별도의 구축 비용과 인프라 관리 비용이 추가 발생
-> > 실무에서는 비용적 여유가 없거나 MySQL로 처리가 가능할 정도의 트래픽이라면 MySQL을 활용하고 
-> >
-> > 비용적 여유가 있거나 MySQL로는 처리가 불가능할 정도의 트래픽이라면 Redis를 도입
+## MySQL과 Redis 장단점
+- MySQL 
+  - 장점
+    - MySQL을 사용하고 있다면 별도의 비용 없이 사용
+    - 성능이 Redis보다는 좋지 않지만 어느 정도의 트래픽까지는 문제없이 사용 가능
+  - 단점
+    - Redis보다는 성능이 좋지 않다
+- Redis
+  - 장점
+    - MySQL보다 성능이 좋기 때문에 더 많은 요청을 처리
+  - 단점
+    - 활용 중인 Redis가 없다면 별도의 구축 비용과 인프라 관리 비용이 추가 발생
+> 실무에서는 비용적 여유가 없거나 MySQL로 처리가 가능할 정도의 트래픽이라면 MySQL을 활용하고 
+>
+> 비용적 여유가 있거나 MySQL로는 처리가 불가능할 정도의 트래픽이라면 Redis를 도입
+
+
 # docker로 redis 사용
 ### redis 설치 및 실행
-```shell
-$ docker pull redis
-$ docker run --name myredis -d -p 6379:6379 redis
-```
+   ```shell
+   $ docker pull redis
+   $ docker run --name myredis -d -p 6379:6379 redis
+   ```
 ### redis 존재하는 이미지 실행
-```shell
-$ docker start myredis
-```
+   ```shell
+   $ docker start myredis
+   ```
 
 ### redis cli 실행
 1. container id 확인
-```shell
-$ docker ps
-```
+   ```shell
+   $ docker ps
+   ```
 2. redis cli 실행
-```shell
-$ docker exec -it {redis container id} redis-cli
-```
+   ```shell
+   $ docker exec -it {redis container id} redis-cli
+   ```
 
 ## Lettuce
 ### redis cli 에서 lock
 1. 키가 1인 데이터 setnx(key: 1, value: lock)
-```shell
-127.0.0.1:6379> setnx 1 lock
-(integer) 1
-127.0.0.1:6379> setnx 1 lock
-(integer) 0
-```
+   ```shell
+   127.0.0.1:6379> setnx 1 lock
+   (integer) 1
+   127.0.0.1:6379> setnx 1 lock
+   (integer) 0
+   ```
 - 1이 성공 0이 실패
 2. 키 1 삭제
-```shell
-127.0.0.1:6379> del 1
-(integer) 1
-127.0.0.1:6379> setnx 1 lock
-(integer) 1
-```
+   ```shell
+   127.0.0.1:6379> del 1
+   (integer) 1
+   127.0.0.1:6379> setnx 1 lock
+   (integer) 1
+   ```
 
 ## Redisson
 터미널 2개 활용해서 pub-sub 간단 실습하기
 1. 한쪽에서 ch1을 구독
-```shell
-subscribe ch1
-```
+   ```shell
+   subscribe ch1
+   ```
 2. 다른 터미널에서 publish로 ch1에 hello 메시지 보내기
-```shell
-publish ch1 hello
-```
+   ```shell
+   publish ch1 hello
+   ```
 3. ch1 구독한 채널에서 Hello라는 메시지 받음
 4.  레디스는 자신이 점유하고 있는 락을 해제할 때 채널에 메시지를 보내줌으로써 
 락을 획득해야 하는 스레드들에게 락 획득을 하라고 전달
 5. 락 획득을 해야 하는 스레드들은 메시지를 받았을 때 락 획득을 시도
+
+![img.png](img/img.png)
+
 > 레튜스는 계속 락 획득을 시도하는 반면 
 > 
 > 레디스는 락 해제가 되었을 때 한 번 혹은 몇 번만 시도를 하기 때문에 레디스의 부하를 줄여준다.
-![img.png](img/img.png)
+
